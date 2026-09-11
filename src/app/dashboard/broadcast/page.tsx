@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Radio, Send, Filter, Users, Mail } from 'lucide-react';
+import { notify } from '@/lib/notify';
 
 export default function BroadcastPage() {
   const [subject, setSubject] = useState('');
@@ -20,10 +21,10 @@ export default function BroadcastPage() {
 
   const handleSendBroadcast = () => {
     if (!subject || !message || !filterType) {
-      alert('Please fill in all fields and select a filter');
+      notify.error('Please fill in all fields and select a filter');
       return;
     }
-    alert(`Broadcast sent to ${recipientCount} recipients!`);
+    notify.success(`Broadcast sent to ${recipientCount} recipients`);
     setSubject('');
     setMessage('');
     setFilterType('');

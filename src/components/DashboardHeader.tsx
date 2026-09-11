@@ -1,22 +1,40 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { useTheme } from '@/context/ThemeContext';
-import { useRouter } from 'next/navigation';
-import { Bell, Sun, Moon, LogOut, User, Menu, Calendar } from 'lucide-react';
+import Image from "next/image";
+import { useTheme } from "@/context/ThemeContext";
+import { useRouter } from "next/navigation";
+import {
+  Bell,
+  Sun,
+  Moon,
+  LogOut,
+  User,
+  Menu,
+  Calendar,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 type DashboardHeaderProps = {
+  isSidebarCollapsed: boolean;
+  onSidebarToggle: () => void;
   onMobileMenuToggle: () => void;
 };
 
-export default function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderProps) {
+export default function DashboardHeader({
+  isSidebarCollapsed,
+  onSidebarToggle,
+  onMobileMenuToggle,
+}: DashboardHeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
 
-  const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
-    document.cookie = 'isAuthenticated=; path=/; max-age=0'; // Clear cookie
-    router.push('/');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("isAuthenticated");
+    document.cookie = "isAuthenticated=; path=/; max-age=0"; // Clear cookie
+    router.push("/");
   };
 
   return (
@@ -30,6 +48,20 @@ export default function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderP
             aria-label="Toggle mobile menu"
           >
             <Menu size={20} className="text-gray-600 dark:text-gray-300" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onSidebarToggle}
+            className="hidden md:inline-flex p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+            aria-label={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+            title={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen size={20} className="text-gray-600 dark:text-gray-300" />
+            ) : (
+              <PanelLeftClose size={20} className="text-gray-600 dark:text-gray-300" />
+            )}
           </button>
 
           <div className="flex items-center gap-2 md:gap-3">
@@ -60,7 +92,9 @@ export default function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderP
 
           {/* Wallet Balance */}
           <div className="hidden sm:flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-            <span className="text-sm md:text-base font-bold text-green-600 dark:text-green-400">₦</span>
+            <span className="text-sm md:text-base font-bold text-green-600 dark:text-green-400">
+              ₦
+            </span>
             <span className="text-sm font-semibold text-gray-900 dark:text-white">
               12,450.00
             </span>
@@ -77,7 +111,7 @@ export default function DashboardHeader({ onMobileMenuToggle }: DashboardHeaderP
             onClick={toggleTheme}
             className="hidden sm:block p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
           >
-            {theme === 'dark' ? (
+            {theme === "dark" ? (
               <Sun size={20} className="text-yellow-500" />
             ) : (
               <Moon size={20} className="text-gray-600" />

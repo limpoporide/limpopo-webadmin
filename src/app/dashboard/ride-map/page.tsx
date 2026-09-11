@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Map, Car, Navigation, CheckCircle, Clock, Maximize2, X } from 'lucide-react';
+import { notify } from '@/lib/notify';
 
 type VehicleStatus = 'available' | 'enroute' | 'booked';
 
@@ -64,7 +65,7 @@ export default function RideMapPage() {
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
-      console.warn('Google Maps API key not configured');
+      notify.warning('Google Maps API key is not configured');
       return;
     }
 
@@ -107,7 +108,7 @@ export default function RideMapPage() {
         }
       })
       .catch((error) => {
-        console.error('Error loading Google Maps:', error);
+        notify.error(error instanceof Error ? error.message : 'Could not load Google Maps');
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

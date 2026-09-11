@@ -1,189 +1,439 @@
 'use client';
 
-import { useState } from 'react';
-import { Settings, User, Lock, Palette, Save } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Loader2,
+  Lock,
+  Palette,
+  Save,
+  Settings,
+  User,
+} from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase } from '@/lib/supabase';
+import { notify } from '@/lib/notify';
+import type { Tables } from '@/types/database.types';
+
+type AdminProfile = Pick<
+  Tables<'admin_profile'>,
+  | 'uuid'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone_num'
+  | 'role'
+  | 'is_active'
+  | 'last_sign_in_at'
+>;
+
+const formatRole = (role: AdminProfile['role']) =>
+  role
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+const formatDateTime = (value: string | null) => {
+  if (!value) {
+    return 'Not recorded';
+  }
+
+  return new Intl.DateTimeFormat('en-NG', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+};
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [firstName, setFirstName] = useState('Admin');
-  const [lastName, setLastName] = useState('User');
-  const [email] = useState('admin@limpopo.com');
+  const [profile, setProfile] = useState<AdminProfile | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const handleUpdateProfile = () => {
-    setSuccessMessage('Profile updated successfully!');
-    setTimeout(() => setSuccessMessage(''), 3000);
+  useEffect(() => {
+    const loadAdminProfile = async () => {
+      setIsLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        localStorage.removeItem('isAuthenticated');
+        document.cookie = 'isAuthenticated=; path=/; max-age=0';
+        router.push('/');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('admin_profile')
+        .select(
+          'uuid, first_name, last_name, email, phone_num, role, is_active, last_sign_in_at',
+        )
+        .eq('uuid', user.id)
+        .limit(2);
+
+      if (error) {
+        notify.error(error.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if ((data?.length ?? 0) > 1) {
+        notify.error('Multiple admin profiles are linked to your account. Please clean up duplicate admin records.');
+        setIsLoading(false);
+        return;
+      }
+
+      const adminProfile = data?.[0] ?? null;
+
+      if (!adminProfile) {
+        notify.error('This authenticated user is not linked to an admin profile.');
+        setIsLoading(false);
+        return;
+      }
+
+      setProfile(adminProfile);
+      setFirstName(adminProfile.first_name);
+      setLastName(adminProfile.last_name);
+      setPhoneNumber(adminProfile.phone_num || '');
+      setEmail(adminProfile.email || user.email || '');
+      setIsLoading(false);
+    };
+
+    loadAdminProfile();
+  }, [router]);
+
+  const showSuccess = (message: string) => {
+    notify.success(message);
   };
 
-  const handleChangePassword = () => {
-    if (newPassword !== confirmPassword) {
-      alert('New passwords do not match!');
+  const handleUpdateProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!profile) {
+      notify.error('Admin profile is not loaded yet.');
       return;
     }
-    setSuccessMessage('Password changed successfully!');
+
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      notify.error('First name and last name are required.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+
+    const { data, error } = await supabase
+      .from('admin_profile')
+      .update({
+        first_name: trimmedFirstName,
+        last_name: trimmedLastName,
+        phone_num: phoneNumber.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('uuid', profile.uuid)
+      .select(
+        'uuid, first_name, last_name, email, phone_num, role, is_active, last_sign_in_at',
+      )
+      .single();
+
+    setIsSavingProfile(false);
+
+    if (error || !data) {
+      notify.error(error?.message || 'Could not update profile.');
+      return;
+    }
+
+    setProfile(data);
+    setFirstName(data.first_name);
+    setLastName(data.last_name);
+    setPhoneNumber(data.phone_num || '');
+    showSuccess('Profile updated successfully.');
+  };
+
+  const handleChangePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!email) {
+      notify.error('Admin email is not available for password verification.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      notify.error('New password must be at least 6 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      notify.error('New passwords do not match.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      setIsChangingPassword(false);
+      notify.error('Current password is incorrect.');
+      return;
+    }
+
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    setIsChangingPassword(false);
+
+    if (passwordError) {
+      notify.error(passwordError.message);
+      return;
+    }
+
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    showSuccess('Password changed successfully.');
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-6">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-6 flex items-center gap-3">
           <Settings size={28} className="text-gray-600 dark:text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Account Settings
           </h1>
         </div>
 
-        {successMessage && (
-          <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-900/40 rounded-lg">
-            <p className="text-sm font-medium text-green-700 dark:text-green-400">{successMessage}</p>
-          </div>
-        )}
-
         <div className="space-y-6">
-          {/* Profile Settings */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <User size={20} className="text-purple-600 dark:text-purple-400" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile Information</h2>
+          <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-6 flex items-center gap-2">
+              <User size={20} className="text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Profile Information
+              </h2>
             </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     First Name
                   </label>
                   <input
                     type="text"
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                    onChange={(event) => setFirstName(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Last Name
                   </label>
                   <input
                     type="text"
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                    onChange={(event) => setLastName(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                />
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    disabled
+                    className="w-full cursor-not-allowed rounded-lg border border-gray-300 bg-gray-100 px-4 py-2 text-gray-500 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
               </div>
+
+              {profile && (
+                <div className="grid grid-cols-1 gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                      Role
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatRole(profile.role)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                      Status
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+                      {profile.is_active ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                      Last Sign In
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatDateTime(profile.last_sign_in_at)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <button
-                onClick={handleUpdateProfile}
-                className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+                type="submit"
+                disabled={isSavingProfile}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Save size={16} />
+                {isSavingProfile ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
                 Save Changes
               </button>
-            </div>
+            </form>
           </div>
 
-          {/* Password Settings */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Lock size={20} className="text-purple-600 dark:text-purple-400" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Change Password</h2>
+          <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-6 flex items-center gap-2">
+              <Lock size={20} className="text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Change Password
+              </h2>
             </div>
-            <div className="space-y-4">
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Current Password
                 </label>
                 <input
                   type="password"
                   value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  required
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     New Password
                   </label>
                   <input
                     type="password"
                     value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Confirm New Password
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    required
                   />
                 </div>
               </div>
+
               <button
-                onClick={handleChangePassword}
-                className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition"
+                type="submit"
+                disabled={isChangingPassword}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Lock size={16} />
+                {isChangingPassword ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Lock size={16} />
+                )}
                 Update Password
               </button>
-            </div>
+            </form>
           </div>
 
-          {/* Theme Settings */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center gap-2 mb-6">
-              <Palette size={20} className="text-purple-600 dark:text-purple-400" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Theme Settings</h2>
+          <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-6 flex items-center gap-2">
+              <Palette size={20} className="text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Theme Settings
+              </h2>
             </div>
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Choose your preferred theme for the admin dashboard.
-              </p>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`px-6 py-3 rounded-lg border-2 transition ${
-                    theme === 'light'
-                      ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
-                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-purple-400'
-                  }`}
-                >
-                  ☀️ Light Mode
-                </button>
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`px-6 py-3 rounded-lg border-2 transition ${
-                    theme === 'dark'
-                      ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400'
-                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-purple-400'
-                  }`}
-                >
-                  🌙 Dark Mode
-                </button>
-              </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`rounded-lg border-2 px-6 py-3 transition ${
+                  theme === 'light'
+                    ? 'border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                    : 'border-gray-300 text-gray-700 hover:border-blue-400 dark:border-gray-600 dark:text-gray-300'
+                }`}
+              >
+                Light Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`rounded-lg border-2 px-6 py-3 transition ${
+                  theme === 'dark'
+                    ? 'border-blue-600 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                    : 'border-gray-300 text-gray-700 hover:border-blue-400 dark:border-gray-600 dark:text-gray-300'
+                }`}
+              >
+                Dark Mode
+              </button>
             </div>
           </div>
         </div>

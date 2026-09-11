@@ -1,37 +1,98 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import Image from "next/image";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { notify } from "@/lib/notify";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [checkingSession, setCheckingSession] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user) {
+          router.replace("/dashboard");
+          return;
+        }
+      } catch (e) {
+        // ignore and allow sign-in UI
+      } finally {
+        setCheckingSession(false);
+      }
+    };
+
+    check();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simple validation (you can add more sophisticated validation)
-    if (email && password) {
-      // Store auth token in localStorage
-      localStorage.setItem('isAuthenticated', 'true');
-      
-      // Set cookie for middleware authentication
-      document.cookie = 'isAuthenticated=true; path=/; max-age=86400'; // 24 hours
-      
-      // Show success modal
-      setShowModal(true);
-      
-      // Redirect to dashboard after 1.5 seconds
+    setLoading(true);
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    try {
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+      if (authError || !authData.user) {
+        throw new Error(
+          authError?.message ||
+            "Invalid credentials. Create this admin in Supabase Authentication, then link admin_profile.uuid to the auth user id.",
+        );
+      }
+
+      const { data: adminProfile, error: profileError } = await supabase
+        .from("admin_profile")
+        .select("uuid, is_active")
+        .eq("uuid", authData.user.id)
+        .single();
+
+      if (profileError || !adminProfile) {
+        await supabase.auth.signOut();
+        throw new Error(
+          "Access denied: this Supabase Auth user is not linked to an admin_profile row.",
+        );
+      }
+
+      if (!adminProfile.is_active) {
+        await supabase.auth.signOut();
+        throw new Error("Account disabled. Please contact system administrator.");
+      }
+
+      await supabase.rpc("touch_admin_last_sign_in");
+
+      localStorage.setItem("isAuthenticated", "true");
+      document.cookie = "isAuthenticated=true; path=/; max-age=86400; samesite=lax";
+
+      notify.success("Login successful. Redirecting to dashboard...");
       setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
+        router.push("/dashboard");
+      }, 1200);
+    } catch (error) {
+      notify.error(
+        error instanceof Error
+          ? error.message
+          : "An error occurred during sign in.",
+      );
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (checkingSession) return null;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
@@ -48,127 +109,90 @@ export default function LoginPage() {
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
         <div className="w-full max-w-lg bg-black">
           <div className="rounded-2xl border border-white/10 bg-white/92 p-8 shadow-2xl backdrop-blur-sm dark:bg-gray-800/88">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Welcome Back
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Sign in to your account
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label 
-                htmlFor="email" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
-                required
-              />
-            </div>
-
-            <div>
-              <label 
-                htmlFor="password" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition pr-12"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <a 
-                href="#" 
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
-              >
-                Forgot Password?
-              </a>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-[#b28117] py-3 font-semibold text-white transition duration-200 hover:scale-[1.02] hover:bg-blue-700"
-            >
-              Sign In
-            </button>
-          </form>
-        </div>
-      </div>
-      </div>
-
-      {/* Success Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-sm mx-4 shadow-2xl transform animate-scale-in">
-            <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="w-8 h-8 text-green-600 dark:text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Login Successful!
-              </h3>
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Welcome Back
+              </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                Redirecting to dashboard...
+                Sign in to your account
               </p>
             </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  required
+                  disabled={loading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition pr-12"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <a
+                  href="#"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                >
+                  Forgot Password?
+                </a>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center rounded-lg bg-[#b28117] py-3 font-semibold text-white transition duration-200 hover:scale-[1.02] hover:bg-[#8f6712] disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </button>
+            </form>
           </div>
         </div>
-      )}
-
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
+      </div>
     </div>
   );
 }

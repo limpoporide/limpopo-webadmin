@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Headphones, Ticket, CheckCircle, AlertCircle, X, Send, Mail, Phone } from 'lucide-react';
+import TablePagination from '@/components/TablePagination';
+import { notify } from '@/lib/notify';
 
 type TicketStatus = 'open' | 'resolved' | 'dispute';
 
@@ -66,11 +68,24 @@ const sampleTickets: Ticket[] = [
   },
 ];
 
+const TICKETS_PAGE_SIZE = 10;
+
 export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>(sampleTickets);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [response, setResponse] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tickets.length]);
+
+  const pageStartIndex = (currentPage - 1) * TICKETS_PAGE_SIZE;
+  const paginatedTickets = tickets.slice(
+    pageStartIndex,
+    pageStartIndex + TICKETS_PAGE_SIZE,
+  );
 
   const openTickets = tickets.filter(t => t.status === 'open').length;
   const resolvedTickets = tickets.filter(t => t.status === 'resolved').length;
@@ -84,7 +99,7 @@ export default function SupportPage() {
 
   const handleSendResponse = () => {
     if (!response.trim() || !selectedTicket) {
-      alert('Please enter a response');
+      notify.error('Please enter a response');
       return;
     }
     
@@ -94,7 +109,7 @@ export default function SupportPage() {
         : t
     ));
     
-    alert('Response sent successfully!');
+    notify.success('Response sent successfully');
     setShowModal(false);
     setSelectedTicket(null);
     setResponse('');
@@ -168,9 +183,9 @@ export default function SupportPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {tickets.map((ticket, index) => (
+                {paginatedTickets.map((ticket, index) => (
                   <tr key={ticket.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{index + 1}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{pageStartIndex + index + 1}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white whitespace-nowrap">{ticket.ticketId}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">{ticket.date}</td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{ticket.customerName}</td>
@@ -205,6 +220,14 @@ export default function SupportPage() {
               </tbody>
             </table>
           </div>
+
+          <TablePagination
+            currentPage={currentPage}
+            pageSize={TICKETS_PAGE_SIZE}
+            totalItems={tickets.length}
+            itemLabel="tickets"
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 
