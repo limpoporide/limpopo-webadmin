@@ -34,19 +34,35 @@ export function getBearerToken(authorization: string | null) {
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
+type AdminActiveCacheEntry = {
+  at: number;
+  ttl: number;
+  active: boolean;
+};
+
+const adminActiveCache = new Map<string, AdminActiveCacheEntry>();
+const ADMIN_ACTIVE_TTL_MS = 30_000;
+
+function now() {
+  return Date.now();
+}
+
 export async function requireActiveAdmin(
   serviceClient: ServiceClient,
   adminUuid: string,
 ) {
+  const cached = adminActiveCache.get(adminUuid);
+  if (cached && now() - cached.at < cached.ttl) {
+    return cached.active;
+  }
+
   const { data, error } = await serviceClient
     .from('admin_profile')
     .select('is_active')
     .eq('uuid', adminUuid)
     .limit(2);
 
-  if (error || (data?.length ?? 0) !== 1 || !data![0].is_active) {
-    return false;
-  }
-
-  return true;
+  const active = !error && (data?.length ?? 0) === 1 && Boolean(data![0].is_active);
+  adminActiveCache.set(adminUuid, { at: now(), ttl: ADMIN_ACTIVE_TTL_MS, active });
+  return active;
 }

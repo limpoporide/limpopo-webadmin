@@ -20,6 +20,9 @@ export default function LoginPage() {
       try {
         const { data } = await supabase.auth.getSession();
         if (data?.session?.user) {
+          localStorage.setItem("isAuthenticated", "true");
+          document.cookie =
+            "isAuthenticated=true; path=/; max-age=86400; samesite=lax";
           router.replace("/dashboard");
           return;
         }
@@ -31,8 +34,7 @@ export default function LoginPage() {
     };
 
     check();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
