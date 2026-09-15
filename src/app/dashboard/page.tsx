@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { notify } from "@/lib/notify";
-import { supabase } from "@/lib/supabase";
+import { useAdminApi } from "@/lib/useAdminApi";
 import {
   Calendar,
   Car,
-  Loader2,
   TrendingUp,
   Users,
   BarChart3,
@@ -51,49 +50,33 @@ function tone(value: number | null) {
   return value > 0 ? ("up" as const) : ("down" as const);
 }
 
+function SkeletonBlock({ className }: { className: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-lg bg-gray-200/80 dark:bg-gray-700/60 ${className}`}
+    />
+  );
+}
+
 export default function DashboardOverview() {
+  const adminApi = useAdminApi();
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchOverview = useCallback(async () => {
+    if (!adminApi.ready) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        notify.error("Your session expired. Please sign in again");
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await fetch("/api/admin/overview", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        cache: "no-store",
-      });
-
-      if (response.status === 204 || response.status === 304) {
-        throw new Error("Dashboard analytics returned an empty response.");
-      }
-
-      const rawText = await response.text();
-      const parsed = rawText ? (JSON.parse(rawText) as unknown) : null;
-
-      if (!response.ok) {
-        const message =
-          parsed && typeof parsed === "object" && "error" in parsed
-            ? String((parsed as { error?: unknown }).error ?? "Request failed.")
-            : "Could not load dashboard analytics.";
-        throw new Error(message);
-      }
-
-      if (!parsed) {
-        throw new Error("Dashboard analytics returned an empty response.");
-      }
-
-      setOverview(parsed as OverviewResponse);
+      const data = await adminApi.getJsonCached<OverviewResponse>(
+        "admin-overview:v1",
+        "/api/admin/overview",
+        { ttlMs: 15_000 },
+      );
+      setOverview(data);
     } catch (error) {
       notify.error(
         error instanceof Error
@@ -103,7 +86,7 @@ export default function DashboardOverview() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [adminApi]);
 
   useEffect(() => {
     void fetchOverview();
@@ -194,10 +177,19 @@ export default function DashboardOverview() {
         <div className="col-span-12">
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-6">
             {isLoading ? (
-              <div className="col-span-full flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                <Loader2 size={18} className="animate-spin" />
-                Loading dashboard analytics...
-              </div>
+              Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 md:p-6"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <SkeletonBlock className="h-12 w-12" />
+                    <SkeletonBlock className="h-5 w-16" />
+                  </div>
+                  <SkeletonBlock className="mb-2 h-4 w-28" />
+                  <SkeletonBlock className="h-7 w-40" />
+                </div>
+              ))
             ) : (
               statCards.map((stat) => {
                 const Icon = stat.icon;
@@ -254,7 +246,20 @@ export default function DashboardOverview() {
                 </h3>
               </div>
 
-              {overview ? (
+              {isLoading ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <SkeletonBlock className="h-4 w-24" />
+                    <SkeletonBlock className="h-4 w-28" />
+                  </div>
+                  <SkeletonBlock className="h-2 w-full rounded-full" />
+                  <div className="flex items-center justify-between">
+                    <SkeletonBlock className="h-4 w-24" />
+                    <SkeletonBlock className="h-4 w-28" />
+                  </div>
+                  <SkeletonBlock className="h-2 w-full rounded-full" />
+                </div>
+              ) : overview ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -303,7 +308,24 @@ export default function DashboardOverview() {
                 </h3>
               </div>
 
-              {overview ? (
+              {isLoading ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="mb-2 flex justify-between">
+                      <SkeletonBlock className="h-3 w-36" />
+                      <SkeletonBlock className="h-3 w-14" />
+                    </div>
+                    <SkeletonBlock className="h-2 w-full rounded-full" />
+                  </div>
+                  <div>
+                    <div className="mb-2 flex justify-between">
+                      <SkeletonBlock className="h-3 w-36" />
+                      <SkeletonBlock className="h-3 w-14" />
+                    </div>
+                    <SkeletonBlock className="h-2 w-full rounded-full" />
+                  </div>
+                </div>
+              ) : overview ? (
                 <div className="space-y-4">
                   <div>
                     <div className="mb-1 flex justify-between">
@@ -380,7 +402,19 @@ export default function DashboardOverview() {
                 </h3>
               </div>
 
-              {overview ? (
+              {isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-gray-700/50"
+                    >
+                      <SkeletonBlock className="h-4 w-24" />
+                      <SkeletonBlock className="h-4 w-10" />
+                    </div>
+                  ))}
+                </div>
+              ) : overview ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between rounded bg-gray-50 p-2 dark:bg-gray-700/50">
                     <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -433,7 +467,32 @@ export default function DashboardOverview() {
                 </Link>
               </div>
 
-              {overview ? (
+              {isLoading ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4 md:gap-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50"
+                    >
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div className="space-y-2">
+                          <SkeletonBlock className="h-4 w-28" />
+                          <SkeletonBlock className="h-3 w-20" />
+                        </div>
+                        <SkeletonBlock className="h-5 w-16 rounded-full" />
+                      </div>
+                      <div className="space-y-2">
+                        <SkeletonBlock className="h-3 w-full" />
+                        <SkeletonBlock className="h-3 w-4/5" />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between">
+                        <SkeletonBlock className="h-3 w-12" />
+                        <SkeletonBlock className="h-4 w-20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : overview ? (
                 overview.scheduledBookings.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
                     No upcoming scheduled bookings.

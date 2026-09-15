@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { notify } from "@/lib/notify";
+import LoginBackground from "../../public/assets/images/bgimage.jpeg";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,15 +20,18 @@ export default function LoginPage() {
     const check = async () => {
       try {
         const { data } = await supabase.auth.getSession();
+
         if (data?.session?.user) {
           localStorage.setItem("isAuthenticated", "true");
+
           document.cookie =
             "isAuthenticated=true; path=/; max-age=86400; samesite=lax";
+
           router.replace("/dashboard");
           return;
         }
       } catch (e) {
-        // ignore and allow sign-in UI
+        // Ignore and allow sign-in UI
       } finally {
         setCheckingSession(false);
       }
@@ -64,6 +68,7 @@ export default function LoginPage() {
 
       if (profileError || !adminProfile) {
         await supabase.auth.signOut();
+
         throw new Error(
           "Access denied: this Supabase Auth user is not linked to an admin_profile row.",
         );
@@ -71,15 +76,21 @@ export default function LoginPage() {
 
       if (!adminProfile.is_active) {
         await supabase.auth.signOut();
-        throw new Error("Account disabled. Please contact system administrator.");
+
+        throw new Error(
+          "Account disabled. Please contact system administrator.",
+        );
       }
 
       await supabase.rpc("touch_admin_last_sign_in");
 
       localStorage.setItem("isAuthenticated", "true");
-      document.cookie = "isAuthenticated=true; path=/; max-age=86400; samesite=lax";
+
+      document.cookie =
+        "isAuthenticated=true; path=/; max-age=86400; samesite=lax";
 
       notify.success("Login successful. Redirecting to dashboard...");
+
       setTimeout(() => {
         router.push("/dashboard");
       }, 1200);
@@ -99,54 +110,61 @@ export default function LoginPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-black">
       <Image
-        src="/LPP fleet.jpg"
-        alt="Limpopo fleet"
+        src={LoginBackground}
+        alt="Limpopo cityscape"
         fill
         priority
+        placeholder="blur"
         className="object-cover object-center"
       />
+
       <div className="absolute inset-0 bg-black/55" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/65" />
 
       <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-        <div className="w-full max-w-lg bg-black">
+        <div className="w-full max-w-md">
           <div className="rounded-2xl border border-white/10 bg-white/92 p-8 shadow-2xl backdrop-blur-sm dark:bg-gray-800/88">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <div className="mb-8 text-center">
+              <h1 className="mb-2 text-3xl font-bold text-gray-900 dark:text-white">
                 Welcome Back
               </h1>
+
               <p className="text-gray-600 dark:text-gray-400">
                 Sign in to your account
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email */}
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   Email Address
                 </label>
+
                 <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-transparent focus:ring-2 focus:ring-[#b28117] dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400"
                   required
                   disabled={loading}
                 />
               </div>
 
+              {/* Password */}
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
                   Password
                 </label>
+
                 <div className="relative">
                   <input
                     id="password"
@@ -154,29 +172,35 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition pr-12"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 pr-12 text-gray-900 outline-none transition placeholder:text-gray-500 focus:border-transparent focus:ring-2 focus:ring-[#b28117] dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400"
                     required
                     disabled={loading}
                   />
+
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
 
+              {/* Forgot Password */}
               <div className="text-right">
                 <a
                   href="#"
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                  className="text-sm text-[#b28117] transition hover:text-[#8f6712]"
                 >
                   Forgot Password?
                 </a>
               </div>
 
+              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
