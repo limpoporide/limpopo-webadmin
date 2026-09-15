@@ -150,17 +150,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if ((existingProfiles?.length ?? 0) > 1) {
-    return NextResponse.json(
-      {
-        error:
-          'Multiple admin profiles exist for this email. Please clean up the duplicate pending rows before sending another invite.',
-      },
-      { status: 409 },
-    );
-  }
-
   const existingProfile = existingProfiles?.[0] ?? null;
+
+  if (existingProfiles && existingProfiles.length > 1) {
+    await serviceClient.from('admin_profile').delete().eq('email', email).eq('is_active', false);
+  }
 
   if (existingProfile?.is_active) {
     return NextResponse.json(
@@ -206,9 +200,6 @@ export async function POST(request: NextRequest) {
   const appOrigin = resolveAppOrigin(request);
   const redirectTo = `${appOrigin}/auth/accept-invite`;
 
-  // Clear any leftover pending profile row so we always insert cleanly.
-  await serviceClient.from('admin_profile').delete().eq('email', email);
-
   const inviteResult = await serviceClient.auth.admin.generateLink({
     type: 'invite',
     email,
@@ -251,6 +242,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const authUserId = linkData.user.id;
+
+  await serviceClient
+    .from('admin_profile')
+    .delete()
+    .eq('email', email)
+    .eq('is_active', false)
+    .neq('uuid', authUserId);
+
   let publicInviteUrl = inviteUrl;
 
   try {
@@ -285,7 +285,7 @@ export async function POST(request: NextRequest) {
 
   const now = new Date().toISOString();
   const adminProfilePayload = {
-    uuid: linkData.user.id,
+    uuid: authUserId,
     email,
     first_name: firstName,
     last_name: lastName,
@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
 
   const { data: admin, error: profileError } = await serviceClient
     .from('admin_profile')
-    .insert(adminProfilePayload)
+    .upsert(adminProfilePayload, { onConflict: 'uuid' })
     .select('*')
     .single();
 
