@@ -12,6 +12,27 @@ const adminRoles: AdminRole[] = [
   'marketing',
 ];
 
+function normalizeOrigin(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
+function resolveAppOrigin(request: NextRequest) {
+  const explicit =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.APP_URL;
+
+  if (explicit) {
+    return normalizeOrigin(explicit);
+  }
+
+  if (process.env.VERCEL_URL) {
+    return normalizeOrigin(`https://${process.env.VERCEL_URL}`);
+  }
+
+  return normalizeOrigin(request.nextUrl.origin);
+}
+
 function getSupabaseConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -182,7 +203,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const redirectTo = `${request.nextUrl.origin}/auth/accept-invite`;
+  const appOrigin = resolveAppOrigin(request);
+  const redirectTo = `${appOrigin}/auth/accept-invite`;
 
   // Clear any leftover pending profile row so we always insert cleanly.
   await serviceClient.from('admin_profile').delete().eq('email', email);
@@ -229,13 +251,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let publicInviteUrl = inviteUrl;
+
+  try {
+    const parsed = new URL(inviteUrl);
+    const tokenFromLink = parsed.searchParams.get('token');
+    const typeFromLink = parsed.searchParams.get('type');
+
+    if (tokenFromLink && (typeFromLink === 'invite' || typeFromLink === 'recovery')) {
+      publicInviteUrl = `${appOrigin}/auth/invite?token=${encodeURIComponent(
+        tokenFromLink,
+      )}&type=${encodeURIComponent(typeFromLink)}`;
+    }
+  } catch {
+    publicInviteUrl = inviteUrl;
+  }
+
   const invitationMessage = [
     'Limpopo Ride Admin Invitation',
     '',
     `Hello ${firstName} ${lastName},`,
     `You have been invited as ${role} on the Limpopo WebAdmin dashboard.`,
     'Open this link to accept the invite and create your password:',
-    inviteUrl,
+    publicInviteUrl,
   ].join('\n');
 
   console.log('\n=== Limpopo Admin Invite ===');
@@ -289,5 +327,5 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ admin, invitationMessage, inviteUrl });
+  return NextResponse.json({ admin, invitationMessage, inviteUrl: publicInviteUrl });
 }
