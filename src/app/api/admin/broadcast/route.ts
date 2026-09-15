@@ -21,6 +21,16 @@ type BroadcastInsertResult = {
   };
 };
 
+type BroadcastUpdateResult = {
+  broadcastId: string;
+  updated: number;
+};
+
+type BroadcastDeleteResult = {
+  broadcastId: string;
+  deleted: number;
+};
+
 type BroadcastSummary = {
   broadcastId: string;
   title: string;
@@ -390,5 +400,90 @@ export async function POST(request: NextRequest) {
     recipients: recipientCounts,
   };
 
+  return NextResponse.json(response);
+}
+
+export async function PUT(request: NextRequest) {
+  const resolved = await resolveAdmin(request);
+
+  if (resolved.error) {
+    return resolved.error;
+  }
+
+  const { serviceClient } = resolved;
+  const body = (await request.json().catch(() => null)) as {
+    broadcastId?: string;
+    title?: string;
+    message?: string;
+  } | null;
+
+  const broadcastId = body?.broadcastId?.trim();
+  const title = body?.title?.trim();
+  const message = body?.message?.trim();
+
+  if (!broadcastId || !title || !message) {
+    return NextResponse.json(
+      { error: "BroadcastId, title, and message are required." },
+      { status: 400 },
+    );
+  }
+
+  const { data, error } = await serviceClient
+    .from("notifications")
+    .update({ title, body: message })
+    .eq("type", "broadcast")
+    .contains("data", { broadcast_id: broadcastId })
+    .select("id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  const updated = data?.length ?? 0;
+
+  if (updated === 0) {
+    return NextResponse.json({ error: "Broadcast not found." }, { status: 404 });
+  }
+
+  const response: BroadcastUpdateResult = { broadcastId, updated };
+  return NextResponse.json(response);
+}
+
+export async function DELETE(request: NextRequest) {
+  const resolved = await resolveAdmin(request);
+
+  if (resolved.error) {
+    return resolved.error;
+  }
+
+  const { serviceClient } = resolved;
+  const url = new URL(request.url);
+  const broadcastId = url.searchParams.get("broadcastId")?.trim();
+
+  if (!broadcastId) {
+    return NextResponse.json(
+      { error: "BroadcastId is required." },
+      { status: 400 },
+    );
+  }
+
+  const { data, error } = await serviceClient
+    .from("notifications")
+    .delete()
+    .eq("type", "broadcast")
+    .contains("data", { broadcast_id: broadcastId })
+    .select("id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  const deleted = data?.length ?? 0;
+
+  if (deleted === 0) {
+    return NextResponse.json({ error: "Broadcast not found." }, { status: 404 });
+  }
+
+  const response: BroadcastDeleteResult = { broadcastId, deleted };
   return NextResponse.json(response);
 }

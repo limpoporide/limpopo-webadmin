@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Loader2,
   Radio,
@@ -11,6 +18,9 @@ import {
   RefreshCw,
   Clock,
   MessageSquare,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { notify } from "@/lib/notify";
 import { supabase } from "@/lib/supabase";
@@ -96,6 +106,15 @@ export default function BroadcastPage() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [editingBroadcastId, setEditingBroadcastId] = useState<string | null>(
+    null,
+  );
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingBroadcastId, setDeletingBroadcastId] = useState<string | null>(
+    null,
+  );
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [recipientCounts, setRecipientCounts] = useState<RecipientCounts>({
     total: 0,
@@ -110,10 +129,18 @@ export default function BroadcastPage() {
   const SelectedIcon = selectedMeta.icon;
 
   const initRef = useRef(false);
-  const recipientsCacheRef = useRef<{ at: number; data: RecipientCounts } | null>(null);
-  const broadcastsCacheRef = useRef<{ at: number; data: BroadcastSummary[] } | null>(null);
+  const recipientsCacheRef = useRef<{
+    at: number;
+    data: RecipientCounts;
+  } | null>(null);
+  const broadcastsCacheRef = useRef<{
+    at: number;
+    data: BroadcastSummary[];
+  } | null>(null);
   const recipientsInFlightRef = useRef<Promise<void> | null>(null);
   const broadcastsInFlightRef = useRef<Promise<void> | null>(null);
+  const leftPanelRef = useRef<HTMLDivElement | null>(null);
+  const [rightPanelHeight, setRightPanelHeight] = useState<number | null>(null);
 
   const estimatedRecipients = useMemo(() => {
     if (audience === "drivers") {
@@ -205,12 +232,17 @@ export default function BroadcastPage() {
           }
 
           if ("recipients" in result) {
-            recipientsCacheRef.current = { at: Date.now(), data: result.recipients };
+            recipientsCacheRef.current = {
+              at: Date.now(),
+              data: result.recipients,
+            };
             setRecipientCounts(result.recipients);
           }
         } catch (error) {
           notify.error(
-            error instanceof Error ? error.message : "Could not load recipients.",
+            error instanceof Error
+              ? error.message
+              : "Could not load recipients.",
           );
         } finally {
           setCountsLoading(false);
@@ -262,7 +294,9 @@ export default function BroadcastPage() {
           setBroadcasts(data);
         } catch (error) {
           notify.error(
-            error instanceof Error ? error.message : "Could not load broadcasts.",
+            error instanceof Error
+              ? error.message
+              : "Could not load broadcasts.",
           );
         } finally {
           setBroadcastsLoading(false);
@@ -290,6 +324,45 @@ export default function BroadcastPage() {
     void loadBroadcasts();
   }, [accessToken, loadBroadcasts, loadRecipientCounts]);
 
+  useLayoutEffect(() => {
+    const element = leftPanelRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const isLargeScreen = () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1024px)").matches;
+
+    if (!isLargeScreen()) {
+      setRightPanelHeight(null);
+      return;
+    }
+
+    const update = () => {
+      if (!isLargeScreen()) {
+        setRightPanelHeight(null);
+        return;
+      }
+
+      setRightPanelHeight(element.getBoundingClientRect().height);
+    };
+
+    update();
+
+    const observer = new ResizeObserver(() => update());
+    observer.observe(element);
+
+    const handleResize = () => update();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
       notify.error("Title and message are required.");
@@ -314,22 +387,118 @@ export default function BroadcastPage() {
         }),
       });
 
-      const result = (await response.json()) as { error?: string; inserted?: number };
+      const result = (await response.json()) as {
+        error?: string;
+        inserted?: number;
+      };
 
       if (!response.ok) {
         throw new Error(result.error || "Broadcast failed.");
       }
 
-      notify.success(`Broadcast sent (${result.inserted ?? 0} notifications created).`);
+      notify.success(
+        `Broadcast sent (${result.inserted ?? 0} notifications created).`,
+      );
       setTitle("");
       setMessage("");
       await loadBroadcasts({ force: true });
     } catch (error) {
-      notify.error(error instanceof Error ? error.message : "Broadcast failed.");
+      notify.error(
+        error instanceof Error ? error.message : "Broadcast failed.",
+      );
     } finally {
       setIsSending(false);
     }
   };
+
+  const handleUpdate = async () => {
+    if (!editingBroadcastId) {
+      return;
+    }
+
+    if (!title.trim() || !message.trim()) {
+      notify.error("Title and message are required.");
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const response = await fetchWithAdmin("/api/admin/broadcast", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          broadcastId: editingBroadcastId,
+          title: title.trim(),
+          message: message.trim(),
+        }),
+      });
+
+      const result = (await response.json()) as {
+        error?: string;
+        updated?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Update failed.");
+      }
+
+      notify.success(
+        `Broadcast updated (${result.updated ?? 0} notifications).`,
+      );
+      setEditingBroadcastId(null);
+      setTitle("");
+      setMessage("");
+      await loadBroadcasts({ force: true });
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Update failed.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async (broadcastId: string) => {
+    setDeletingBroadcastId(broadcastId);
+    setOpenMenuId(null);
+    setConfirmDeleteId(null);
+
+    try {
+      const response = await fetchWithAdmin(
+        `/api/admin/broadcast?broadcastId=${encodeURIComponent(broadcastId)}`,
+        { method: "DELETE" },
+      );
+
+      const result = (await response.json()) as {
+        error?: string;
+        deleted?: number;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || "Delete failed.");
+      }
+
+      notify.success(
+        `Broadcast deleted (${result.deleted ?? 0} notifications).`,
+      );
+      await loadBroadcasts({ force: true });
+
+      if (editingBroadcastId === broadcastId) {
+        setEditingBroadcastId(null);
+        setTitle("");
+        setMessage("");
+      }
+    } catch (error) {
+      notify.error(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setDeletingBroadcastId(null);
+    }
+  };
+
+  const confirmDeleteItem = useMemo(
+    () =>
+      broadcasts.find((item) => item.broadcastId === confirmDeleteId) ?? null,
+    [broadcasts, confirmDeleteId],
+  );
 
   return (
     <div className="p-4 md:p-8">
@@ -348,12 +517,17 @@ export default function BroadcastPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div className="grid grid-cols-1 gap-6 items-stretch lg:grid-cols-3">
+          <div className="lg:col-span-2 h-full min-h-0">
+            <div
+              ref={leftPanelRef}
+              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedMeta.pill}`}>
+                  <div
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${selectedMeta.pill}`}
+                  >
                     {selectedMeta.label}
                   </div>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -369,7 +543,12 @@ export default function BroadcastPage() {
                   className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
                   disabled={countsLoading || broadcastsLoading}
                 >
-                  <RefreshCw size={16} className={countsLoading || broadcastsLoading ? "animate-spin" : ""} />
+                  <RefreshCw
+                    size={16}
+                    className={
+                      countsLoading || broadcastsLoading ? "animate-spin" : ""
+                    }
+                  />
                   Refresh
                 </button>
               </div>
@@ -377,7 +556,10 @@ export default function BroadcastPage() {
               <div className="mt-6 space-y-6">
                 <div>
                   <div className="flex items-center gap-2">
-                    <Users size={16} className="text-purple-600 dark:text-purple-400" />
+                    <Users
+                      size={16}
+                      className="text-purple-600 dark:text-purple-400"
+                    />
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                       Select Audience
                     </h2>
@@ -424,7 +606,9 @@ export default function BroadcastPage() {
                             <p className="text-sm font-semibold text-gray-900 dark:text-white">
                               {meta.label}
                             </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">{meta.helper}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              {meta.helper}
+                            </p>
                           </div>
                         </button>
                       );
@@ -434,7 +618,10 @@ export default function BroadcastPage() {
                   <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <SelectedIcon size={18} className="text-purple-700 dark:text-purple-300" />
+                        <SelectedIcon
+                          size={18}
+                          className="text-purple-700 dark:text-purple-300"
+                        />
                         <div>
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">
                             Estimated recipients
@@ -445,7 +632,9 @@ export default function BroadcastPage() {
                         </div>
                       </div>
                       <div className="text-lg font-bold text-gray-900 dark:text-white">
-                        {countsLoading ? "…" : estimatedRecipients.toLocaleString()}
+                        {countsLoading
+                          ? "…"
+                          : estimatedRecipients.toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -496,26 +685,64 @@ export default function BroadcastPage() {
                       Ready to send?
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      This creates one notification row per recipient in the notifications table.
+                      This creates one notification row per recipient in the
+                      notifications table.
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => void handleSend()}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
-                    disabled={isSending || countsLoading}
-                  >
-                    {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    {isSending ? "Sending..." : "Send Broadcast"}
-                  </button>
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        editingBroadcastId
+                          ? void handleUpdate()
+                          : void handleSend()
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      disabled={isSending || isUpdating || countsLoading}
+                    >
+                      {isSending || isUpdating ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Send size={18} />
+                      )}
+                      {editingBroadcastId
+                        ? isUpdating
+                          ? "Updating..."
+                          : "Update Broadcast"
+                        : isSending
+                          ? "Sending..."
+                          : "Send Broadcast"}
+                    </button>
+
+                    {editingBroadcastId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingBroadcastId(null);
+                          setTitle("");
+                          setMessage("");
+                        }}
+                        className="text-xs font-semibold text-gray-600 underline-offset-2 hover:underline dark:text-gray-300"
+                      >
+                        Cancel edit
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="lg:col-span-1 h-full min-h-0">
+            <div
+              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 flex h-full min-h-0 flex-col overflow-hidden"
+              style={
+                rightPanelHeight
+                  ? { height: `${rightPanelHeight}px` }
+                  : undefined
+              }
+            >
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -528,7 +755,7 @@ export default function BroadcastPage() {
                 <Clock size={18} className="text-gray-500 dark:text-gray-300" />
               </div>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-5 space-y-3 overflow-auto pr-1 flex-1 min-h-0">
                 {broadcastsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                     <Loader2 size={16} className="animate-spin" />
@@ -539,18 +766,22 @@ export default function BroadcastPage() {
                     No broadcasts yet.
                   </div>
                 ) : (
-                  broadcasts.slice(0, 8).map((item) => {
-                    const meta = audienceMeta[item.audience] ?? audienceMeta.all;
+                  broadcasts.map((item) => {
+                    const meta =
+                      audienceMeta[item.audience] ?? audienceMeta.all;
                     const Icon = meta.icon;
                     const preview = truncate(item.body, 110);
+                    const isMenuOpen = openMenuId === item.broadcastId;
                     return (
                       <div
                         key={item.broadcastId}
-                        className="rounded-xl border border-gray-200 p-4 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/40"
+                        className="relative rounded-xl border border-gray-200 p-4 transition hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/40"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-3">
-                            <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${meta.pill}`}>
+                            <div
+                              className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${meta.pill}`}
+                            >
                               <Icon size={16} />
                             </div>
                             <div>
@@ -563,18 +794,80 @@ export default function BroadcastPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                              {(item.recipients?.total ?? 0).toLocaleString()}
-                            </p>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                              recipients
-                            </p>
+                            <div className="flex items-start justify-end gap-2">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                  {(
+                                    item.recipients?.total ?? 0
+                                  ).toLocaleString()}
+                                </p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                                  recipients
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenMenuId((current) =>
+                                    current === item.broadcastId
+                                      ? null
+                                      : item.broadcastId,
+                                  )
+                                }
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-gray-600 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                                aria-label="Broadcast actions"
+                              >
+                                <MoreVertical size={16} />
+                              </button>
+                            </div>
                           </div>
                         </div>
 
                         <p className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
                           {formatDateTime(item.createdAt)}
                         </p>
+
+                        {isMenuOpen ? (
+                          <>
+                            <button
+                              type="button"
+                              className="fixed inset-0 z-40 cursor-default"
+                              onClick={() => setOpenMenuId(null)}
+                              aria-label="Close menu"
+                            />
+                            <div className="absolute right-3 top-11 z-50 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setEditingBroadcastId(item.broadcastId);
+                                  setAudience(item.audience);
+                                  setTitle(item.title);
+                                  setMessage(item.body);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                              >
+                                <Pencil size={16} />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setConfirmDeleteId(item.broadcastId);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-900/20"
+                                disabled={Boolean(deletingBroadcastId)}
+                              >
+                                <Trash2 size={16} />
+                                {deletingBroadcastId === item.broadcastId
+                                  ? "Deleting..."
+                                  : "Delete"}
+                              </button>
+                            </div>
+                          </>
+                        ) : null}
                       </div>
                     );
                   })
@@ -584,6 +877,74 @@ export default function BroadcastPage() {
           </div>
         </div>
       </div>
+
+      {confirmDeleteItem ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close delete confirmation"
+            onClick={() => setConfirmDeleteId(null)}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Delete broadcast?
+                </p>
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                  This removes all notifications created for this broadcast.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteId(null)}
+                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/30">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                {truncate(confirmDeleteItem.title, 80)}
+              </p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                {truncate(confirmDeleteItem.body, 120)}
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteId(null)}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                disabled={Boolean(deletingBroadcastId)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete(confirmDeleteItem.broadcastId)}
+                className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={Boolean(deletingBroadcastId)}
+              >
+                {deletingBroadcastId === confirmDeleteItem.broadcastId ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Trash2 size={16} />
+                )}
+                <span className="ml-2">
+                  {deletingBroadcastId === confirmDeleteItem.broadcastId
+                    ? "Deleting..."
+                    : "Delete"}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

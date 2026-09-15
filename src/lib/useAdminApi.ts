@@ -137,7 +137,7 @@ export function useAdminApi(): AdminApi {
       return;
     }
 
-    for (const key of jsonCache.keys()) {
+    for (const key of Array.from(jsonCache.keys())) {
       if (predicate(key)) {
         jsonCache.delete(key);
       }
@@ -155,4 +155,3 @@ export function useAdminApi(): AdminApi {
     invalidate,
   };
 }
-
