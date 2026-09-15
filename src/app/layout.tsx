@@ -6,6 +6,10 @@ import ToastProvider from "@/components/ToastProvider";
 export const metadata: Metadata = {
   title: "Limpopo WebAdmin",
   description: "Admin Dashboard for Limpopo",
+  icons: {
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: [{ url: "/favicon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
