@@ -7,7 +7,6 @@ import {
   requireActiveAdmin,
 } from "@/lib/supabaseAdmin";
 import type { Tables } from "@/types/database.types";
-
 export type OverviewTotals = {
   bookings: {
     total: number;
