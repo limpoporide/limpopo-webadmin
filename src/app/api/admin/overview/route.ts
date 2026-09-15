@@ -75,6 +75,17 @@ const CACHE_HEADERS = {
   Vary: "Authorization",
 };
 
+const APP_TIME_ZONE = process.env.APP_TIME_ZONE || "Africa/Lagos";
+
+function dateKey(value: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
 function toIso(value: Date) {
   return value.toISOString();
 }
@@ -451,7 +462,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const todayKey = toIso(startToday).slice(0, 10);
+    const todayKey = dateKey(now);
     const { data: scheduledRows, error: scheduledError } = await serviceClient
       .from("schedule_booking")
       .select(
