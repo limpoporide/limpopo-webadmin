@@ -23,7 +23,8 @@ type DriverFilter = "all" | "online" | "offline" | "unverified";
 
 // Car marker icon. Place mapdrive-image.jpeg at public/assets/images/mapdrive-image.jpeg
 const CAR_ICON_URL = "/assets/images/mapdrive-image.jpeg";
-const CAR_ICON_SIZE = 24;
+const CAR_ICON_WIDTH = 16;
+const CAR_ICON_HEIGHT = 24;
 
 let googleMapsPromise: Promise<void> | null = null;
 let googleMapsApiKey: string | null = null;
@@ -172,10 +173,10 @@ export default function RideMapPage() {
             title: `${driver.first_name} ${driver.last_name}`,
             icon: {
               url: CAR_ICON_URL,
-              scaledSize: new google.maps.Size(CAR_ICON_SIZE, CAR_ICON_SIZE),
+              scaledSize: new google.maps.Size(CAR_ICON_WIDTH, CAR_ICON_HEIGHT),
               anchor: new google.maps.Point(
-                CAR_ICON_SIZE / 2,
-                CAR_ICON_SIZE / 2,
+                CAR_ICON_WIDTH / 2,
+                CAR_ICON_HEIGHT / 2,
               ),
             },
           });
