@@ -67,7 +67,7 @@ export default function DashboardHeader({
           <div className="flex items-center gap-2 md:gap-3">
             <div className="relative h-8 w-8 md:h-10 md:w-10 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-700">
               <Image
-                src="/limpopo-logo.png"
+                src="/favicon.png"
                 alt="Limpopo logo"
                 fill
                 sizes="40px"
