@@ -7,6 +7,7 @@ import {
   Car,
   Clock,
   ListChecks,
+  Loader2,
   Package,
   RefreshCw,
   Search,
@@ -56,7 +57,7 @@ const TAB_CONFIG: Array<{
     key: "instant",
     label: "Instant Bookings",
     icon: Zap,
-    description: "Live rider booking activity from the on-demand trip flow.",
+    description: "Live rider booking ",
     defaultCard: "total",
   },
   {
@@ -70,167 +71,8 @@ const TAB_CONFIG: Array<{
     key: "courier",
     label: "Courier Delivery",
     icon: Package,
-    description: "Courier delivery overview while backend integration is pending.",
+    description: "Courier delivery.",
     defaultCard: "total",
-  },
-];
-
-const COURIER_ROWS: BookingTableRow[] = [
-  {
-    id: "courier-001",
-    riderName: "Amara Okeke",
-    riderPhone: "08030000001",
-    driverName: "Daniel Obi",
-    driverPhone: "08040000001",
-    pickup: "Lekki Phase 1, Lagos",
-    dropOff: "Victoria Island, Lagos",
-    amount: 8500,
-    paymentStatus: "Paid",
-    rideStatus: "completed",
-    date: new Date().toISOString(),
-  },
-  {
-    id: "courier-002",
-    riderName: "Tomiwa Akin",
-    riderPhone: "08030000002",
-    driverName: "Sarah Yusuf",
-    driverPhone: "08040000002",
-    pickup: "Ikeja GRA, Lagos",
-    dropOff: "Yaba, Lagos",
-    amount: 6200,
-    paymentStatus: "Pending",
-    rideStatus: "pending",
-    date: new Date().toISOString(),
-  },
-  {
-    id: "courier-003",
-    riderName: "Ngozi Eze",
-    riderPhone: "08030000003",
-    driverName: "Unassigned",
-    driverPhone: "Not assigned",
-    pickup: "Surulere, Lagos",
-    dropOff: "Ajah, Lagos",
-    amount: 9100,
-    paymentStatus: "Cancelled",
-    rideStatus: "cancelled",
-    date: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "courier-004",
-    riderName: "David Bello",
-    riderPhone: "08030000004",
-    driverName: "Musa Aliyu",
-    driverPhone: "08040000004",
-    pickup: "Ikoyi, Lagos",
-    dropOff: "Lekki Phase 2, Lagos",
-    amount: 7800,
-    paymentStatus: "Paid",
-    rideStatus: "completed",
-    date: new Date(Date.now() - 2 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-005",
-    riderName: "Aisha Lawal",
-    riderPhone: "08030000005",
-    driverName: "Femi Ade",
-    driverPhone: "08040000005",
-    pickup: "Maryland, Lagos",
-    dropOff: "Magodo, Lagos",
-    amount: 5400,
-    paymentStatus: "Pending",
-    rideStatus: "pending",
-    date: new Date(Date.now() - 3 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-006",
-    riderName: "John Peters",
-    riderPhone: "08030000006",
-    driverName: "James Ekanem",
-    driverPhone: "08040000006",
-    pickup: "Festac, Lagos",
-    dropOff: "Apapa, Lagos",
-    amount: 6900,
-    paymentStatus: "Paid",
-    rideStatus: "completed",
-    date: new Date(Date.now() - 4 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-007",
-    riderName: "Kemi Thomas",
-    riderPhone: "08030000007",
-    driverName: "Ngozi Driver",
-    driverPhone: "08040000007",
-    pickup: "Mushin, Lagos",
-    dropOff: "Ojodu, Lagos",
-    amount: 4800,
-    paymentStatus: "Cancelled",
-    rideStatus: "cancelled",
-    date: new Date(Date.now() - 5 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-008",
-    riderName: "Gbenga Cole",
-    riderPhone: "08030000008",
-    driverName: "Haruna Sule",
-    driverPhone: "08040000008",
-    pickup: "Oshodi, Lagos",
-    dropOff: "Gbagada, Lagos",
-    amount: 7200,
-    paymentStatus: "Pending",
-    rideStatus: "pending",
-    date: new Date(Date.now() - 6 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-009",
-    riderName: "Chioma Nnadi",
-    riderPhone: "08030000009",
-    driverName: "Daniel Obi",
-    driverPhone: "08040000001",
-    pickup: "Chevron, Lagos",
-    dropOff: "Sangotedo, Lagos",
-    amount: 6300,
-    paymentStatus: "Paid",
-    rideStatus: "completed",
-    date: new Date(Date.now() - 7 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-010",
-    riderName: "Bola Adeyemi",
-    riderPhone: "08030000010",
-    driverName: "Sarah Yusuf",
-    driverPhone: "08040000002",
-    pickup: "Ogba, Lagos",
-    dropOff: "Alausa, Lagos",
-    amount: 5100,
-    paymentStatus: "Pending",
-    rideStatus: "pending",
-    date: new Date(Date.now() - 8 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-011",
-    riderName: "Princess Udo",
-    riderPhone: "08030000011",
-    driverName: "Musa Aliyu",
-    driverPhone: "08040000004",
-    pickup: "Ikotun, Lagos",
-    dropOff: "Egbeda, Lagos",
-    amount: 4700,
-    paymentStatus: "Paid",
-    rideStatus: "completed",
-    date: new Date(Date.now() - 9 * 86400000).toISOString(),
-  },
-  {
-    id: "courier-012",
-    riderName: "Samuel Nwachukwu",
-    riderPhone: "08030000012",
-    driverName: "Unassigned",
-    driverPhone: "Not assigned",
-    pickup: "Badore, Lagos",
-    dropOff: "Jakande, Lagos",
-    amount: 5900,
-    paymentStatus: "Cancelled",
-    rideStatus: "cancelled",
-    date: new Date(Date.now() - 10 * 86400000).toISOString(),
   },
 ];
 
@@ -298,92 +140,11 @@ function SkeletonBlock({ className }: { className: string }) {
   );
 }
 
-function getCourierRows(card: BookingTableCard, page: number, pageSize: number) {
-  const startToday = new Date();
-  startToday.setHours(0, 0, 0, 0);
-
-  const filtered = COURIER_ROWS.filter((row) => {
-    const rowDate = new Date(row.date);
-    const status = row.rideStatus.toLowerCase();
-
-    if (card === "today") {
-      return rowDate >= startToday;
-    }
-
-    if (card === "completed") {
-      return status.includes("complete");
-    }
-
-    if (card === "cancelled") {
-      return status.includes("cancel");
-    }
-
-    return true;
-  });
-
-  const from = (page - 1) * pageSize;
-
-  return {
-    rows: filtered.slice(from, from + pageSize),
-    total: filtered.length,
-  };
-}
-
-function applyCourierStatusFilter(
-  rows: BookingTableRow[],
-  statusFilter: RideStatusFilter,
-) {
-  if (statusFilter === "all") {
-    return rows;
-  }
-
-  return rows.filter((row) => {
-    const status = row.rideStatus.toLowerCase();
-
-    if (statusFilter === "cancelled") {
-      return status.includes("cancel");
-    }
-
-    if (statusFilter === "expired") {
-      return status.includes("expired");
-    }
-
-    if (statusFilter === "completed") {
-      return status.includes("complete");
-    }
-
-    if (statusFilter === "pending") {
-      return status.includes("pending") || status.includes("open");
-    }
-
-    return status.includes("open") || status.includes("pending");
-  });
-}
-
-function applyCourierSearch(rows: BookingTableRow[], query: string) {
-  const normalized = query.trim().toLowerCase();
-
-  if (!normalized) {
-    return rows;
-  }
-
-  return rows.filter((row) => {
-    const haystack = [
-      row.riderName,
-      row.driverName,
-      row.riderPhone,
-      row.driverPhone,
-      formatDateOnly(row.date),
-      formatTimeOnly(row.date),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return haystack.includes(normalized);
-  });
-}
-
 function getRideStatusOptions(activeTab: BookingTab) {
+  if (activeTab === "courier") {
+    return [] satisfies Array<{ value: RideStatusFilter; label: string }>;
+  }
+
   if (activeTab === "scheduled") {
     return [
       { value: "all", label: "All Ride Status" },
@@ -449,41 +210,36 @@ function buildSummaryCards(
   }
 
   if (activeTab === "courier") {
-    const total = COURIER_ROWS.length;
-    const today = getCourierRows("today", 1, COURIER_ROWS.length).total;
-    const completed = getCourierRows("completed", 1, COURIER_ROWS.length).total;
-    const cancelled = getCourierRows("cancelled", 1, COURIER_ROWS.length).total;
-
     return [
       {
         key: "total",
         label: "Total Delivery",
-        value: total,
-        meta: "Demo data",
+        value: 0,
+        meta: "Coming soon",
         icon: Package,
         tone: "bg-sky-500",
       },
       {
         key: "today",
         label: "Today Delivery",
-        value: today,
-        meta: "Demo data",
+        value: 0,
+        meta: "Coming soon",
         icon: Calendar,
         tone: "bg-indigo-500",
       },
       {
         key: "completed",
         label: "Completed",
-        value: completed,
-        meta: "Demo data",
+        value: 0,
+        meta: "Coming soon",
         icon: ListChecks,
         tone: "bg-green-500",
       },
       {
         key: "cancelled",
         label: "Cancelled",
-        value: cancelled,
-        meta: "Demo data",
+        value: 0,
+        meta: "Coming soon",
         icon: Clock,
         tone: "bg-red-500",
       },
@@ -586,16 +342,8 @@ export default function BookingPage() {
   const loadTableRows = useCallback(
     async ({ force }: { force?: boolean } = {}) => {
       if (activeTab === "courier") {
-        setDetailLoading(true);
-        const result = getCourierRows(activeCard, 1, COURIER_ROWS.length);
-        const filtered = applyCourierSearch(
-          applyCourierStatusFilter(result.rows, rideStatusFilter),
-          searchQuery,
-        );
-        const from = (detailPage - 1) * PAGE_SIZE;
-
-        setDetailRows(filtered.slice(from, from + PAGE_SIZE));
-        setDetailTotal(filtered.length);
+        setDetailRows([]);
+        setDetailTotal(0);
         setDetailLoading(false);
         return;
       }
@@ -671,10 +419,7 @@ export default function BookingPage() {
     await loadTableRows({ force: true });
   }, [loadBookingStats, loadTableRows]);
 
-  const rideStatusOptions = useMemo(
-    () => getRideStatusOptions(activeTab),
-    [activeTab],
-  );
+  const rideStatusOptions = useMemo(() => getRideStatusOptions(activeTab), [activeTab]);
 
   return (
     <div className="p-4 md:p-8">
@@ -816,57 +561,79 @@ export default function BookingPage() {
                 {activeCardMeta?.label ?? "Booking Details"}
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                 Showing {PAGE_SIZE} rows per page.
+                {activeTab === "courier"
+                  ? "Courier delivery will appear here once the module is ready."
+                  : `Showing ${PAGE_SIZE} rows per page.`}
               </p>
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-300">
-              {detailLoading ? "Loading..." : `${detailTotal.toLocaleString()} records`}
+              {activeTab === "courier"
+                ? "Coming soon"
+                : detailLoading
+                  ? "Loading..."
+                  : `${detailTotal.toLocaleString()} records`}
             </div>
           </div>
 
-          <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700 md:px-6">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  Filter by ride status
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Narrow down the highlighted booking card and search by name, date, phone number, or time.
-                </p>
-              </div>
+          {activeTab !== "courier" && (
+            <div className="border-b border-gray-200 px-4 py-4 dark:border-gray-700 md:px-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Filter by ride status
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Narrow down the highlighted booking card and search by name, date, phone number, or time.
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[220px_minmax(0,320px)]">
-                <select
-                  value={rideStatusFilter}
-                  onChange={(event) =>
-                    setRideStatusFilter(event.target.value as RideStatusFilter)
-                  }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                >
-                  {rideStatusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[220px_minmax(0,320px)]">
+                  <select
+                    value={rideStatusFilter}
+                    onChange={(event) =>
+                      setRideStatusFilter(event.target.value as RideStatusFilter)
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                  >
+                    {rideStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
 
-                <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search name, date, phone, time..."
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  />
+                  <div className="relative">
+                    <Search
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search name, date, phone, time..."
+                      className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {detailLoading ? (
+          {activeTab === "courier" ? (
+            <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                <Package size={28} />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Coming soon
+                </h3>
+                <p className="mt-2 max-w-md text-sm text-gray-600 dark:text-gray-400">
+                  Courier Delivery is not available on the admin dashboard yet. This section will be enabled once the module is ready.
+                </p>
+              </div>
+            </div>
+          ) : detailLoading ? (
             <div className="space-y-3 p-4 md:p-6">
               {Array.from({ length: 8 }).map((_, index) => (
                 <SkeletonBlock key={index} className="h-12 w-full" />
