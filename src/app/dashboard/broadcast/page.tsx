@@ -502,7 +502,7 @@ export default function BroadcastPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl space-y-6">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
             <Radio size={22} />

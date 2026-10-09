@@ -423,7 +423,7 @@ export default function BookingPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">

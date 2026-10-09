@@ -130,7 +130,7 @@ export default function SupportPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Headphones size={28} className="text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

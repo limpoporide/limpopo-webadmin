@@ -91,6 +91,7 @@ export default function DashboardHeader({
           </button>
 
           {/* Wallet Balance */}
+          {/*
           <div className="hidden sm:flex items-center gap-2 px-3 md:px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <span className="text-sm md:text-base font-bold text-green-600 dark:text-green-400">
               ₦
@@ -99,6 +100,7 @@ export default function DashboardHeader({
               12,450.00
             </span>
           </div>
+          */}
 
           {/* Notifications */}
           <button className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">

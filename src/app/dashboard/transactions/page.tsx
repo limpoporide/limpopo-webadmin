@@ -462,7 +462,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             {/* Transactions page icon */}

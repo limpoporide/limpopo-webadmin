@@ -5,7 +5,7 @@ import { BarChart3 } from 'lucide-react';
 export default function AnalyticsPage() {
   return (
     <div className="p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <BarChart3 size={28} className="text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

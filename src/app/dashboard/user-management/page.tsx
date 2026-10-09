@@ -30,6 +30,7 @@ import { Tables } from "@/types/database.types";
 type DriverProfile = Tables<"driver_profile">;
 type RiderProfile = Tables<"rider_profile">;
 type ProfileTab = "drivers" | "riders";
+type DriverStatusFilter = "all" | "online" | "offline";
 type SelectedProfile =
   | { type: "driver"; row: DriverProfile }
   | { type: "rider"; row: RiderProfile };
@@ -369,17 +370,20 @@ function StatusBadge({
   active,
   trueLabel,
   falseLabel,
+  inactiveClassName,
 }: {
   active: boolean;
   trueLabel: string;
   falseLabel: string;
+  inactiveClassName?: string;
 }) {
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
         active
           ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800"
-          : "bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600"
+          : inactiveClassName ??
+            "bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600"
       }`}
     >
       {active ? trueLabel : falseLabel}
@@ -760,6 +764,8 @@ export default function UserManagementPage() {
   const [riders, setRiders] = useState<RiderProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [driverStatusFilter, setDriverStatusFilter] =
+    useState<DriverStatusFilter>("all");
   const [selectedProfile, setSelectedProfile] =
     useState<SelectedProfile | null>(null);
   const [driverPage, setDriverPage] = useState(1);
@@ -858,16 +864,19 @@ export default function UserManagementPage() {
   const visibleDrivers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    if (!query) {
-      return drivers;
-    }
+    return drivers.filter((driver) => {
+      const matchesStatus =
+        driverStatusFilter === "all" ||
+        (driverStatusFilter === "online" ? driver.is_online : !driver.is_online);
+      const matchesSearch =
+        !query ||
+        `${driver.first_name} ${driver.last_name} ${driver.email} ${driver.phone_num}`
+          .toLowerCase()
+          .includes(query);
 
-    return drivers.filter((driver) =>
-      `${driver.first_name} ${driver.last_name} ${driver.email} ${driver.phone_num}`
-        .toLowerCase()
-        .includes(query),
-    );
-  }, [drivers, searchTerm]);
+      return matchesStatus && matchesSearch;
+    });
+  }, [drivers, driverStatusFilter, searchTerm]);
 
   const visibleRiders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -886,7 +895,7 @@ export default function UserManagementPage() {
   useEffect(() => {
     setDriverPage(1);
     setRiderPage(1);
-  }, [searchTerm, activeTab]);
+  }, [searchTerm, activeTab, driverStatusFilter]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(visibleDrivers.length / USER_PAGE_SIZE));
@@ -921,7 +930,7 @@ export default function UserManagementPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
             <Users size={28} className="text-blue-600 dark:text-blue-400" />
@@ -935,18 +944,34 @@ export default function UserManagementPage() {
             </div>
           </div>
 
-          <div className="relative w-full lg:w-80">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search name, email, or phone"
-              className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
-            />
+          <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+            {activeTab === "drivers" && (
+              <select
+                aria-label="Filter drivers by online status"
+                value={driverStatusFilter}
+                onChange={(event) =>
+                  setDriverStatusFilter(event.target.value as DriverStatusFilter)
+                }
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              >
+                <option value="all">All drivers</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+              </select>
+            )}
+            <div className="relative w-full lg:w-80">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search name, email, or phone"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
+              />
+            </div>
           </div>
         </div>
 
@@ -1054,6 +1079,7 @@ export default function UserManagementPage() {
                             active={driver.phone_verified}
                             trueLabel="Verified"
                             falseLabel="Unverified"
+                            inactiveClassName="bg-red-800 text-white ring-1 ring-red-900 dark:bg-red-800 dark:text-white dark:ring-red-700"
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -1061,6 +1087,7 @@ export default function UserManagementPage() {
                             active={driver.admin_verify}
                             trueLabel="Verified"
                             falseLabel="Unverified"
+                            inactiveClassName="bg-red-800 text-white ring-1 ring-red-900 dark:bg-red-800 dark:text-white dark:ring-red-700"
                           />
                         </td>
                         <td className="px-4 py-3">

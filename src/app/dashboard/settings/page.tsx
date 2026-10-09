@@ -222,7 +222,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 flex items-center gap-3">
           <Settings size={28} className="text-gray-600 dark:text-gray-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

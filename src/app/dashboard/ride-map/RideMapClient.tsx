@@ -338,7 +338,7 @@ export default function RideMapClient({ apiKey }: RideMapClientProps) {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <MapIcon size={28} className="text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -457,7 +457,7 @@ export default function RideMapClient({ apiKey }: RideMapClientProps) {
         >
           {isFullscreen && (
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
-              <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="max-w-7xl 2xl:max-w-screen-2xl mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <MapIcon
                     size={24}

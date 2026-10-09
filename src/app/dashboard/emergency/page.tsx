@@ -84,7 +84,7 @@ const getColorClasses = (color: string) => {
 export default function EmergencyPage() {
   return (
     <div className="p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-screen-2xl mx-auto">
         {/* Hero Banner */}
         <div className="bg-gradient-to-r from-red-600 to-orange-600 dark:from-red-700 dark:to-orange-700 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
           <div className="flex items-center gap-4 mb-4">

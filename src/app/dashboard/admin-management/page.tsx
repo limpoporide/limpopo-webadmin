@@ -238,7 +238,7 @@ export default function AdminManagementPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <UserCog size={28} className="text-indigo-600 dark:text-indigo-400" />

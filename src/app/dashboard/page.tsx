@@ -164,7 +164,7 @@ export default function DashboardOverview() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl 2xl:max-w-screen-2xl">
         <div className="mb-6 md:mb-8">
           <h1 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">
             Welcome Admin 👋
